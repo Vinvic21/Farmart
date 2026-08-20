@@ -1,0 +1,35 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Boot the Flask app in the background, then hit /status to ensure the app is running. This is a simple health check
+      # to actually prove the skeleton API responds correctly.
+      - name: Start app and check /status
+        run: |
+          python app.py &
+          sleep 3
+          curl --fail http://127.0.0.1:5000/status || (echo "Health check failed" && exit 1)

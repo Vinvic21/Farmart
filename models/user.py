@@ -15,6 +15,7 @@ class User(db.Model):
     profile = db.relationship("Profile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     animals = db.relationship("Animal", back_populates="farmer", cascade="all, delete-orphan")
     cart = db.relationship("Cart", back_populates="buyer", uselist=False, cascade="all, delete-orphan")
+    orders = db.relationship("Order", back_populates="buyer", cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

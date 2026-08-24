@@ -52,8 +52,7 @@ jobs:
         run: |
           pytest --maxfail=1 --disable-warnings -v
 
-      # Boot the Flask app in the background, then hit /status to ensure the app is running. This is a simple health check
-      # to actually prove the skeleton API responds correctly.
+      # Boot the Flask app in the background, then hit /status to ensure the app is running.
       - name: Start app and check /status
         run: |
           python app.py &

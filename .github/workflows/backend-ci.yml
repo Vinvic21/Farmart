@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 name: Backend CI
 
 on:
@@ -61,4 +59,3 @@ jobs:
           python app.py &
           sleep 3
           curl --fail http://127.0.0.1:5000/status || (echo "Health check failed" && exit 1)
->>>>>>> Stashed changes

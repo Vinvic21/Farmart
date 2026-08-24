@@ -18,16 +18,11 @@ app.register_blueprint(animals_bp)
 
 @app.route('/')
 def home():
-<<<<<<< Updated upstream
-    return jsonify({"message": "Welcome to Farmrt"})
-=======
     return jsonify({"message": "Welcome to Farmart"})
 
 @app.route("/status")
 def status():
     return jsonify(status="ok"), 200
-
->>>>>>> Stashed changes
 
 if __name__ == '__main__':
     app.run(debug=True)

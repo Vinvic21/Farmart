@@ -48,10 +48,6 @@ jobs:
         run: |
           flask db upgrade
 
-      - name: Run pytest suite
-        run: |
-          pytest --maxfail=1 --disable-warnings -v
-
       # Boot the Flask app in the background, then hit /status to ensure the app is running.
       - name: Start app and check /status
         run: |

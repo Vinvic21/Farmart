@@ -10,6 +10,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: farmart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/farmart_test
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -26,8 +44,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Boot the Flask app in the background, then hit /status to ensure the app is running. This is a simple health check
-      # to actually prove the skeleton API responds correctly.
+      - name: Run database migrations
+        run: |
+          flask db upgrade
+
+      # Boot the Flask app in the background, then hit /status to ensure the app is running.
       - name: Start app and check /status
         run: |
           python app.py &

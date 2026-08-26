@@ -1,26 +1,30 @@
 from flask import Flask, jsonify
 from dotenv import load_dotenv
-load_dotenv() 
-from extensions import db, ma
+
+from extensions import db, ma, init_extensions
 from flask_migrate import Migrate
 from models import User, Profile, Animal, Cart, CartItem, Order, OrderItem, Payment
 from controllers.animals import animals_bp
+from controllers.auth import auth_bp
 from controllers.payments import payments_bp
 from controllers.cart import cart_bp
 import os
 
+load_dotenv()
+
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///farmart.db").replace("postgres://", "postgresql://", 1)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["CORS_ORIGINS"] = os.environ.get("CORS_ORIGINS", "*")
 
-db.init_app(app)
-ma.init_app(app)
+init_extensions(app)
 
 migrate = Migrate(app, db)
 
 app.register_blueprint(cart_bp)
 app.register_blueprint(animals_bp)
 app.register_blueprint(payments_bp)
+app.register_blueprint(auth_bp)
 
 @app.route('/')
 def home():

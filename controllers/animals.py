@@ -1,12 +1,16 @@
 from flask import Blueprint, request, jsonify
-from models import Animal
-from schemas.animal_schema import animal_schema, animals_schema
+from marshmallow import ValidationError
 
-animals_bp = Blueprint("animals", __name__, url_prefix="/animals")
+from extensions import db
+from models import Animal
+from schemas import animal_schema, animals_schema
+from middleware import farmer_required
+
+animals_bp = Blueprint("animals", __name__, url_prefix="/api/v1/animals")
 
 
 class AnimalController:
-    
+    #.........................................
 
     MAX_PER_PAGE = 50
     DEFAULT_PER_PAGE = 10
@@ -22,7 +26,7 @@ class AnimalController:
 
     @staticmethod
     def get_animal_by_id(animal_id):
-        return Animal.query.get(animal_id)
+        return db.session.get(Animal, animal_id)
 
     @staticmethod
     def _apply_filters(query, filters):
@@ -49,7 +53,7 @@ class AnimalController:
 
 
 def _parse_filters():
-    
+    #.........................................
     return {
         "type": request.args.get("type"),
         "breed": request.args.get("breed"),
@@ -84,3 +88,62 @@ def get_animal(id):
     if not animal:
         return jsonify(error="Animal not found"), 404
     return jsonify(animal_schema.dump(animal)), 200
+
+
+@animals_bp.route("", methods=["POST"])
+@farmer_required
+def create_animal(current_user):
+    #.........................................
+    data = request.get_json(silent=True) or {}
+
+    try:
+        animal = animal_schema.load(data)
+    except ValidationError as err:
+        return jsonify(errors=err.messages), 400
+
+    animal.farmer_id = current_user.id
+
+    db.session.add(animal)
+    db.session.commit()
+
+    return jsonify(animal_schema.dump(animal)), 201
+
+
+@animals_bp.route("/<int:id>", methods=["PATCH"])
+@farmer_required
+def update_animal(id, current_user):
+    #.........................................
+    animal = AnimalController.get_animal_by_id(id)
+    if not animal:
+        return jsonify(error="Animal not found"), 404
+
+    if animal.farmer_id != current_user.id:
+        return jsonify(error="Not authorized to modify this animal"), 403
+
+    data = request.get_json(silent=True) or {}
+
+    try:
+        animal = animal_schema.load(data, instance=animal, partial=True)
+    except ValidationError as err:
+        return jsonify(errors=err.messages), 400
+
+    db.session.commit()
+
+    return jsonify(animal_schema.dump(animal)), 200
+
+
+@animals_bp.route("/<int:id>", methods=["DELETE"])
+@farmer_required
+def delete_animal(id, current_user):
+    #.........................................
+    animal = AnimalController.get_animal_by_id(id)
+    if not animal:
+        return jsonify(error="Animal not found"), 404
+
+    if animal.farmer_id != current_user.id:
+        return jsonify(error="Not authorized to delete this animal"), 403
+
+    db.session.delete(animal)
+    db.session.commit()
+
+    return jsonify(message="Animal deleted successfully"), 200

@@ -17,5 +17,10 @@ class CartItem(db.Model):
         db.UniqueConstraint('cart_id', 'animal_id', name='unique_cart_animal'),
     )
 
+    @property
+    def subtotal(self):
+        """Line total for this cart item (animal price x quantity)."""
+        return self.animal.price * self.quantity if self.animal else 0
+
     def __repr__(self):
         return f"<CartItem {self.id} (cart_id={self.cart_id}, animal_id={self.animal_id}, quantity={self.quantity})>"

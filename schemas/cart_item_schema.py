@@ -1,15 +1,19 @@
-from extensions import ma
+from marshmallow import validate
+from extensions import ma, db
 from models import CartItem
-from schemas.animal_schema import AnimalSchema
 
 
 class CartItemSchema(ma.SQLAlchemyAutoSchema):
+    #.........................................
     class Meta:
         model = CartItem
         load_instance = True
         include_fk = True
+        sqla_session = db.session
 
-    animal = ma.Nested(AnimalSchema)
+    quantity = ma.Integer(validate=validate.Range(min=1, max=100))
+    subtotal = ma.Float(dump_only=True)
+    animal = ma.Nested("AnimalSchema", dump_only=True)
 
 
 cart_item_schema = CartItemSchema()

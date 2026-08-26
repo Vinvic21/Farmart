@@ -265,3 +265,7 @@ All PRs require review from another team member before merging to `develop`.
 | Benvictor Gecure  | Frontend scaffold, animal detail/checkout UI  |
 | Celestine         | Frontend auth, farmer dashboard               |
 | Dario             | Frontend cart, payment UI, QA                 |
+
+
+ ## Running test use the comand below
+    DATABASE_URL=sqlite:///:memory: python -m pytest

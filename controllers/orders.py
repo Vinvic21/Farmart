@@ -1,5 +1,3 @@
-# controllers/orders.py
-
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
@@ -322,4 +320,4 @@ def update_order_status(order_id, new_status):
     
     # Check if all items in order are confirmed/rejected
     all_items = OrderItem.query.filter_by(order_id=order.id).all()
-    all_
+    

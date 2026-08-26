@@ -2,6 +2,13 @@ import pytest
 
 from app import app
 from extensions import db
+from middleware.auth_middleware import role_required
+
+
+@app.route('/api/v1/test/protected-farmer', methods=['GET'])
+@role_required(['farmer'])
+def protected_farmer_route():
+    return {'success': True, 'message': 'farmer access ok'}
 
 
 @pytest.fixture
@@ -92,4 +99,28 @@ def test_login_rejects_bad_credentials(client):
     })
 
     assert response.status_code == 401
+    assert response.get_json()['success'] is False
+
+
+def test_role_required_blocks_non_matching_role(client):
+    buyer_payload = {
+        'email': 'buyer.role.test@example.com',
+        'password': 'secret123',
+        'confirm_password': 'secret123',
+        'role': 'buyer'
+    }
+
+    client.post('/api/v1/auth/register', json=buyer_payload)
+    login = client.post('/api/v1/auth/login', json={
+        'email': buyer_payload['email'],
+        'password': buyer_payload['password']
+    })
+    token = login.get_json()['access_token']
+
+    response = client.get(
+        '/api/v1/test/protected-farmer',
+        headers={'Authorization': f'Bearer {token}'}
+    )
+
+    assert response.status_code == 403
     assert response.get_json()['success'] is False

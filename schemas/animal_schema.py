@@ -1,5 +1,3 @@
-# schemas/animal_schema.py
-
 from marshmallow import Schema, fields, validate, pre_load, post_load, ValidationError
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from models import Animal

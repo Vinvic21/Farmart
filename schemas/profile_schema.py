@@ -1,5 +1,3 @@
-# schemas/profile_schema.py
-
 from marshmallow import Schema, fields, validate, post_load
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from models import Profile

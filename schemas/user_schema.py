@@ -1,5 +1,3 @@
-# schemas/user_schema.py
-
 from marshmallow import Schema, fields, validate, ValidationError, pre_load, post_load
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from models import User

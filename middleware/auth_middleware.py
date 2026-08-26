@@ -1,94 +1,80 @@
 # middleware/auth_middleware.py
 
 from functools import wraps
+
 from flask import jsonify
-from flask_jwt_extended import get_jwt, verify_jwt_in_request
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
+
+from extensions import db
 from models import User
 
 
+def _normalize_roles(allowed_roles):
+    if isinstance(allowed_roles, str):
+        return {allowed_roles}
+    return set(allowed_roles)
+
+
 def role_required(allowed_roles):
-    """
-    Decorator to restrict access based on user role
-    
-    Usage:
-        @role_required(['admin', 'farmer'])
-        def some_route():
-            ...
-    """
+    """Restrict access based on the authenticated user's role."""
+    required_roles = _normalize_roles(allowed_roles)
+
     def decorator(fn):
         @wraps(fn)
+        @jwt_required()
         def wrapper(*args, **kwargs):
-            try:
-                # Verify JWT exists and is valid
-                verify_jwt_in_request()
-                
-                # Get user claims
-                claims = get_jwt()
-                user_role = claims.get('role', '')
-                
-                if user_role not in allowed_roles:
-                    return jsonify({
-                        'success': False,
-                        'message': f'Access denied. Required roles: {", ".join(allowed_roles)}'
-                    }), 403
-                
-                # Check if user exists and is active
-                user_id = claims.get('sub')
-                user = User.query.get(int(user_id))
-                
-                if not user:
-                    return jsonify({
-                        'success': False,
-                        'message': 'User not found'
-                    }), 404
-                
-                if not user.is_active:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Account is disabled'
-                    }), 403
-                
-                # Pass user to route if needed
-                kwargs['current_user'] = user
-                
-                return fn(*args, **kwargs)
-                
-            except Exception as e:
+            claims = get_jwt()
+            user_role = claims.get('role')
+
+            if user_role not in required_roles:
                 return jsonify({
                     'success': False,
-                    'message': f'Authentication error: {str(e)}'
-                }), 401
-        
+                    'message': f'Access denied. Required roles: {", ".join(sorted(required_roles))}'
+                }), 403
+
+            user_id = get_jwt_identity()
+            user = db.session.get(User, int(user_id)) if user_id is not None else None
+
+            if not user:
+                return jsonify({
+                    'success': False,
+                    'message': 'User not found'
+                }), 404
+
+            kwargs['current_user'] = user
+            return fn(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def farmer_required(fn):
-    """Decorator for farmer-only routes"""
+    """Decorator for farmer-only routes."""
     return role_required(['farmer'])(fn)
 
 
 def buyer_required(fn):
-    """Decorator for buyer-only routes"""
+    """Decorator for buyer-only routes."""
     return role_required(['buyer'])(fn)
 
 
 def admin_required(fn):
-    """Decorator for admin-only routes"""
+    """Decorator for admin-only routes."""
     return role_required(['admin'])(fn)
 
 
 def farmer_or_admin_required(fn):
-    """Decorator for farmer or admin routes"""
+    """Decorator for farmer or admin routes."""
     return role_required(['farmer', 'admin'])(fn)
 
 
 def get_current_user():
-    """Helper to get current user from JWT"""
+    """Get the current user from the JWT identity."""
     try:
-        verify_jwt_in_request()
-        claims = get_jwt()
-        user_id = claims.get('sub')
-        return User.query.get(int(user_id))
-    except:
+        user_id = get_jwt_identity()
+        if not user_id:
+            return None
+        return db.session.get(User, int(user_id))
+    except Exception:
         return None

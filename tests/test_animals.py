@@ -36,7 +36,7 @@ def _create_farmer_and_animal(status="available"):
 
 
 def test_get_animals_empty(client):
-    response = client.get("/animals")
+    response = client.get("/api/v1/animals")
     assert response.status_code == 200
     data = response.get_json()
     assert data["animals"] == []
@@ -48,7 +48,7 @@ def test_get_animals_returns_available_only(client):
         _create_farmer_and_animal(status="available")
         _create_farmer_and_animal(status="sold")
 
-    response = client.get("/animals")
+    response = client.get("/api/v1/animals")
     assert response.status_code == 200
     data = response.get_json()
     assert data["total"] == 1
@@ -60,7 +60,7 @@ def test_get_animal_by_id(client):
         animal = _create_farmer_and_animal()
         animal_id = animal.id
 
-    response = client.get(f"/animals/{animal_id}")
+    response = client.get(f"/api/v1/animals/{animal_id}")
     assert response.status_code == 200
     data = response.get_json()
     assert data["id"] == animal_id
@@ -68,5 +68,5 @@ def test_get_animal_by_id(client):
 
 
 def test_get_animal_not_found(client):
-    response = client.get("/animals/9999")
+    response = client.get("/api/v1/animals/9999")
     assert response.status_code == 404

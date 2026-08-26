@@ -18,5 +18,9 @@ class Animal(db.Model):
 
     farmer = db.relationship("User", back_populates="animals")
 
+    def is_available(self):
+        """Whether this animal can currently be added to a cart / ordered."""
+        return self.status == "available"
+
     def __repr__(self):
         return f"<Animal {self.id} ({self.type}, {self.breed}) owned by farmer_id={self.farmer_id}>"

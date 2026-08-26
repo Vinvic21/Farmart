@@ -8,6 +8,7 @@ from controllers.animals import animals_bp
 from controllers.auth import auth_bp
 from controllers.payments import payments_bp
 from controllers.cart import cart_bp
+from controllers.orders import orders_bp
 import os
 
 load_dotenv()
@@ -25,6 +26,7 @@ app.register_blueprint(cart_bp)
 app.register_blueprint(animals_bp)
 app.register_blueprint(payments_bp)
 app.register_blueprint(auth_bp)
+app.register_blueprint(orders_bp)
 
 @app.route('/')
 def home():

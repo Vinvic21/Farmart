@@ -7,11 +7,18 @@ class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     animal_id = db.Column(db.Integer, db.ForeignKey('animals.id'), nullable=False)
+    farmer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     price_at_purchase = db.Column(db.Float, nullable=False)  # snapshot, so historical orders stay accurate
+    status = db.Column(db.String, nullable=False, default='pending')  # pending, confirmed, rejected (per-item, per-farmer)
 
     order = db.relationship("Order", back_populates="items")
     animal = db.relationship("Animal")
+    farmer = db.relationship("User")
+
+    @property
+    def subtotal(self):
+        return self.price_at_purchase * self.quantity
 
     def __repr__(self):
-        return f"<OrderItem {self.id} order_id={self.order_id} animal_id={self.animal_id} qty={self.quantity}>"
+        return f"<OrderItem {self.id} order_id={self.order_id} animal_id={self.animal_id} qty={self.quantity} status={self.status}>"

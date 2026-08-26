@@ -1,15 +1,18 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models import Order, Payment
+from schemas import payment_schema
 from services.mpesa import MpesaService
 
-payments_bp = Blueprint("payments", __name__, url_prefix="/payments")
+payments_bp = Blueprint("payments", __name__, url_prefix="/api/v1/payments")
 
 
 class PaymentController:
+    #.........................................
+
     @staticmethod
     def initiate_payment(order_id):
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return None, "Order not found"
 
@@ -62,7 +65,7 @@ class PaymentController:
 
 @payments_bp.route("/initiate", methods=["POST"])
 def initiate_payment():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     order_id = data.get("order_id")
     if not order_id:
         return jsonify(error="order_id is required"), 400
@@ -73,14 +76,13 @@ def initiate_payment():
 
     return jsonify(
         message="Payment initiated. Check your phone to complete the transaction.",
-        payment_id=payment.id,
-        status=payment.status,
+        payment=payment_schema.dump(payment),
     ), 201
 
 
 @payments_bp.route("/webhook", methods=["POST"])
 def mpesa_webhook():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     callback = data.get("Body", {}).get("stkCallback", {})
     checkout_request_id = callback.get("CheckoutRequestID")
     result_code = callback.get("ResultCode")

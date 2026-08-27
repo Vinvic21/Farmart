@@ -15,6 +15,7 @@ class Animal(db.Model):
     price = db.Column(db.Float, nullable=False)
     status = db.Column(db.String, default="available")  
     description = db.Column(db.Text)
+    image_url = db.Column(db.String, nullable=True)
 
     farmer = db.relationship("User", back_populates="animals")
 

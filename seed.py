@@ -13,6 +13,30 @@ ANIMAL_TYPES = {
     "Pig": ["Landrace", "Large White", "Duroc"],
 }
 
+ANIMAL_IMAGES = {
+    "Cow": [
+        "https://images.unsplash.com/photo-1546445317-29f4545e9d53?w=800&q=80",
+        "https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=800&q=80",
+        "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80",
+    ],
+    "Goat": [
+        "https://images.unsplash.com/photo-1524024973431-2ad916746881?w=800&q=80",
+        "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80",
+    ],
+    "Sheep": [
+        "https://images.unsplash.com/photo-1484557985045-edf25e08da73?w=800&q=80",
+        "https://images.unsplash.com/photo-1484557052118-f32bd25b45b5?w=800&q=80",
+    ],
+    "Chicken": [
+        "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=800&q=80",
+        "https://images.unsplash.com/photo-1518492104633-130d0cc84637?w=800&q=80",
+    ],
+    "Pig": [
+        "https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=800&q=80",
+        "https://images.unsplash.com/photo-1516750105099-4b8a83e217b6?w=800&q=80",
+    ],
+}
+
 NUM_FARMERS = 8
 NUM_BUYERS = 12
 ANIMALS_PER_FARMER = 5
@@ -50,6 +74,7 @@ def create_animal(farmer):
         price=round(fake.random_number(digits=4) + fake.random.random(), 2),
         status=fake.random_element(["available", "available", "available", "sold"]),  # weighted toward available
         description=fake.sentence(nb_words=12),
+        image_url=fake.random_element(ANIMAL_IMAGES[animal_type]),
     )
     db.session.add(animal)
 

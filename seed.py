@@ -1,7 +1,7 @@
 from faker import Faker
 from app import app
 from extensions import db
-from models import User, Profile, Animal
+from models import User, Profile, Animal, Cart, CartItem, Order, OrderItem, Payment
 
 fake = Faker()
 
@@ -81,6 +81,13 @@ def create_animal(farmer):
 
 def seed():
     print("Clearing existing data...")
+    # Delete children before parents to respect FK constraints.
+    # Order: cart_items -> carts, payments -> order_items -> orders, then animals -> profiles -> users
+    db.session.query(CartItem).delete()
+    db.session.query(Cart).delete()
+    db.session.query(Payment).delete()
+    db.session.query(OrderItem).delete()
+    db.session.query(Order).delete()
     db.session.query(Animal).delete()
     db.session.query(Profile).delete()
     db.session.query(User).delete()

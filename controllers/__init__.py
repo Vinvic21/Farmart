@@ -1,8 +1,3 @@
-"""Controller package exports.
-
-This keeps controller imports lazy so app startup does not trigger circular
-import issues while blueprint modules are being registered.
-"""
 
 from importlib import import_module
 
@@ -12,6 +7,7 @@ __all__ = [
     'cart_bp',
     'orders_bp',
     'payments_bp',
+    'admin_bp',
 ]
 
 _MODULE_MAP = {
@@ -20,6 +16,7 @@ _MODULE_MAP = {
     'cart_bp': '.cart',
     'orders_bp': '.orders',
     'payments_bp': '.payments',
+    'admin_bp': '.admin',
 }
 
 

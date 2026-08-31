@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Order, Payment
 from schemas import payment_schema
@@ -16,16 +17,27 @@ class PaymentController:
         if not order:
             return None, "Order not found"
 
-        if order.status != "confirmed":
+        if order.status not in ("confirmed", "paid"):
             return None, "Order is not ready for payment"
 
-        payment = Payment(
-            order_id=order.id,
-            amount=order.total_amount,
-            method="mpesa",
-            status="pending",
-        )
-        db.session.add(payment)
+        # Reuse an existing payment row instead of creating a second one for
+        # the same order (Order.payment is one-to-one) — avoids orphaned
+        # duplicate rows when a failed/pending payment is retried.
+        payment = Payment.query.filter_by(order_id=order.id).first()
+        if payment and payment.status == "completed":
+            return None, "This order has already been paid for"
+
+        if payment:
+            payment.amount = order.total_amount
+            payment.status = "pending"
+        else:
+            payment = Payment(
+                order_id=order.id,
+                amount=order.total_amount,
+                method="mpesa",
+                status="pending",
+            )
+            db.session.add(payment)
         db.session.commit()
 
         try:
@@ -64,11 +76,19 @@ class PaymentController:
 
 
 @payments_bp.route("/initiate", methods=["POST"])
+@jwt_required()
 def initiate_payment():
     data = request.get_json(silent=True) or {}
     order_id = data.get("order_id")
     if not order_id:
         return jsonify(error="order_id is required"), 400
+
+    user_id = get_jwt_identity()
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify(error="Order not found"), 404
+    if order.buyer_id != int(user_id):
+        return jsonify(error="Not authorized to pay for this order"), 403
 
     payment, error = PaymentController.initiate_payment(order_id)
     if error:

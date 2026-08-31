@@ -4,7 +4,7 @@ from marshmallow import ValidationError
 from extensions import db
 from models import Animal
 from schemas import animal_schema, animals_schema
-from middleware import farmer_required
+from middleware import farmer_required, farmer_or_admin_required
 
 animals_bp = Blueprint("animals", __name__, url_prefix="/api/v1/animals")
 
@@ -53,7 +53,7 @@ class AnimalController:
 
 
 def _parse_filters():
-    #.........................................
+    
     return {
         "type": request.args.get("type"),
         "breed": request.args.get("breed"),
@@ -93,7 +93,7 @@ def get_animal(id):
 @animals_bp.route("", methods=["POST"])
 @farmer_required
 def create_animal(current_user):
-    #.........................................
+    
     data = request.get_json(silent=True) or {}
 
     try:
@@ -110,14 +110,14 @@ def create_animal(current_user):
 
 
 @animals_bp.route("/<int:id>", methods=["PATCH"])
-@farmer_required
+@farmer_or_admin_required
 def update_animal(id, current_user):
     #.........................................
     animal = AnimalController.get_animal_by_id(id)
     if not animal:
         return jsonify(error="Animal not found"), 404
 
-    if animal.farmer_id != current_user.id:
+    if animal.farmer_id != current_user.id and not current_user.is_admin():
         return jsonify(error="Not authorized to modify this animal"), 403
 
     data = request.get_json(silent=True) or {}
@@ -133,14 +133,14 @@ def update_animal(id, current_user):
 
 
 @animals_bp.route("/<int:id>", methods=["DELETE"])
-@farmer_required
+@farmer_or_admin_required
 def delete_animal(id, current_user):
-    #.........................................
+    
     animal = AnimalController.get_animal_by_id(id)
     if not animal:
         return jsonify(error="Animal not found"), 404
 
-    if animal.farmer_id != current_user.id:
+    if animal.farmer_id != current_user.id and not current_user.is_admin():
         return jsonify(error="Not authorized to delete this animal"), 403
 
     db.session.delete(animal)

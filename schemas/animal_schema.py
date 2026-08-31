@@ -16,6 +16,7 @@ class AnimalSchema(ma.SQLAlchemyAutoSchema):
     breed = ma.String(required=True, validate=validate.Length(min=2, max=50))
     price = ma.Float(required=True, validate=validate.Range(min=0))
     status = ma.String(validate=validate.OneOf(["available", "pending", "sold"]))
+    image_url = ma.String(required=False, allow_none=True)
 
     # farmer_id is set server-side from the logged in user, never from the client
     farmer_id = ma.Integer(dump_only=True)

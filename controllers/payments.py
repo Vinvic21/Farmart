@@ -1,4 +1,7 @@
-from flask import Blueprint, request, jsonify
+import os
+import threading
+import time
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Order, Payment
@@ -6,6 +9,16 @@ from schemas import payment_schema
 from services.mpesa import MpesaService
 
 payments_bp = Blueprint("payments", __name__, url_prefix="/api/v1/payments")
+
+# We're not processing real M-Pesa transactions right now. The STK push
+# still goes out to the phone correctly, but since there's no real money
+# moving, Safaricom's sandbox callback is unreliable (often it just never
+# arrives). Auto-completing the payment locally after a short delay lets
+# the rest of the flow (order -> paid, animal -> sold) work end-to-end for
+# testing/demo purposes. Set MPESA_AUTO_COMPLETE=false once real payments
+# are wired up, so a genuine webhook is required instead.
+MPESA_AUTO_COMPLETE = os.environ.get("MPESA_AUTO_COMPLETE", "true").lower() == "true"
+MPESA_AUTO_COMPLETE_DELAY = int(os.environ.get("MPESA_AUTO_COMPLETE_DELAY", "10"))
 
 
 class PaymentController:
@@ -54,7 +67,30 @@ class PaymentController:
         payment.transaction_ref = mpesa_response.get("CheckoutRequestID")
         db.session.commit()
 
+        if MPESA_AUTO_COMPLETE:
+            # Fire-and-forget: simulate Safaricom's callback ourselves after
+            # a short delay so we don't have to wait on/rely on the sandbox.
+            app = current_app._get_current_object()
+            threading.Thread(
+                target=PaymentController._auto_complete_after_delay,
+                args=(app, payment.id, MPESA_AUTO_COMPLETE_DELAY),
+                daemon=True,
+            ).start()
+
         return payment, None
+
+    @staticmethod
+    def _auto_complete_after_delay(app, payment_id, delay):
+        """Runs on a background thread — needs its own app context since
+        the request that triggered it will already have finished."""
+        time.sleep(delay)
+        with app.app_context():
+            payment = db.session.get(Payment, payment_id)
+            # Only complete it if it's still pending — if the real webhook
+            # (or an admin/manual action) already resolved it, leave it alone.
+            if not payment or payment.status != "pending":
+                return
+            PaymentController.handle_webhook(payment.transaction_ref, result_code=0)
 
     @staticmethod
     def handle_webhook(checkout_request_id, result_code):

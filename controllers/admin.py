@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy.exc import IntegrityError
 from extensions import db
-from models import User, Profile, Animal, Order, OrderItem
+from models import User, Profile, Animal, Order, OrderItem, CartItem
 from schemas import user_schema, users_schema, animals_schema
 from middleware import admin_required
 
@@ -199,6 +200,11 @@ def get_all_animals(current_user):
     query = Animal.query
     if status:
         query = query.filter_by(status=status)
+    else:
+        # Delisted animals (order history prevented a hard delete) shouldn't
+        # clutter the default moderation view — admin can still pull them
+        # up explicitly with ?status=removed if needed.
+        query = query.filter(Animal.status != "removed")
 
     paginated = query.order_by(Animal.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
@@ -220,7 +226,28 @@ def delete_animal(current_user, animal_id):
     if not animal:
         return jsonify({"success": False, "message": "Animal not found"}), 404
 
-    db.session.delete(animal)
-    db.session.commit()
+    # Same constraint as the farmer-facing delete: clear stale cart entries,
+    # but delist (don't hard-delete) if the animal has real order history,
+    # since OrderItem.animal_id is a required FK and order/revenue records
+    # depend on being able to look the animal back up.
+    CartItem.query.filter_by(animal_id=animal_id).delete()
+
+    has_order_history = db.session.query(
+        OrderItem.query.filter_by(animal_id=animal_id).exists()
+    ).scalar()
+
+    if has_order_history:
+        animal.status = "removed"
+        db.session.commit()
+        return jsonify({"success": True, "message": "Animal has order history, so it was delisted instead of deleted"}), 200
+
+    try:
+        db.session.delete(animal)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        animal.status = "removed"
+        db.session.commit()
+        return jsonify({"success": True, "message": "Animal has order history, so it was delisted instead of deleted"}), 200
 
     return jsonify({"success": True, "message": "Animal deleted successfully"}), 200

@@ -6,6 +6,66 @@ from models import User, Profile, Animal, Cart, CartItem, Order, OrderItem, Paym
 
 fake = Faker()
 
+# Kenyan first/last names, spanning several communities (Kikuyu, Luo,
+# Luhya, Kamba, Kalenjin, coastal/Swahili) so seeded farmers/buyers feel
+# authentic rather than generic Faker defaults.
+KENYAN_MALE_FIRST_NAMES = [
+    "Kevin", "Brian", "James", "John", "Peter", "David", "Samuel", "Daniel",
+    "Kamau", "Mwangi", "Njoroge", "Kariuki", "Otieno", "Omondi", "Odhiambo",
+    "Wafula", "Wanyama", "Simiyu", "Kiptoo", "Kiprop", "Kipchoge", "Kipketer",
+    "Mutua", "Musyoka", "Kilonzo", "Hassan", "Omar", "Abdullahi", "Juma",
+    "Erick", "Dennis", "Collins", "Felix", "Victor", "Elvis", "Moses",
+    "Joseph", "Stephen", "Patrick", "Anthony", "Charles", "Francis",
+]
+KENYAN_FEMALE_FIRST_NAMES = [
+    "Mary", "Grace", "Faith", "Joyce", "Ann", "Jane", "Lucy", "Esther",
+    "Wanjiru", "Njeri", "Wambui", "Nyokabi", "Achieng", "Adhiambo", "Akinyi",
+    "Nafula", "Nekesa", "Chebet", "Chepkoech", "Jepkosgei", "Cherono",
+    "Mueni", "Wavinya", "Ndunge", "Amina", "Fatuma", "Halima", "Zainab",
+    "Sharon", "Nancy", "Purity", "Caroline", "Diana", "Irene", "Winnie",
+    "Beatrice", "Catherine", "Agnes", "Eunice", "Priscilla", "Consolata",
+]
+KENYAN_SURNAMES = [
+    "Kamau", "Mwangi", "Njoroge", "Kariuki", "Maina", "Ndungu", "Gitau",
+    "Otieno", "Omondi", "Odhiambo", "Owino", "Ochieng", "Onyango",
+    "Wafula", "Wanyama", "Simiyu", "Wekesa", "Barasa", "Situma",
+    "Kiptoo", "Kiprop", "Kipchoge", "Kipketer", "Rotich", "Ruto",
+    "Mutua", "Musyoka", "Kilonzo", "Mwikali", "Nzioka",
+    "Hassan", "Omar", "Abdullahi", "Mohamed", "Ali",
+    "Kimani", "Njuguna", "Waweru", "Karanja", "Muthoni",
+]
+KENYAN_TOWNS = [
+    "Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret", "Thika", "Nyeri",
+    "Machakos", "Meru", "Kakamega", "Kitale", "Malindi", "Naivasha",
+    "Kericho", "Kitui", "Embu", "Garissa", "Bungoma", "Nanyuki", "Voi",
+]
+
+
+def kenyan_first_last():
+    is_male = random.choice([True, False])
+    first = random.choice(KENYAN_MALE_FIRST_NAMES if is_male else KENYAN_FEMALE_FIRST_NAMES)
+    last = random.choice(KENYAN_SURNAMES)
+    return first, last
+
+
+def kenyan_phone():
+    # Safaricom/Airtel-style Kenyan mobile numbers: 07XX XXX XXX or 01XX XXX XXX
+    prefix = random.choice(["070", "071", "072", "074", "079", "011", "010"])
+    return f"{prefix}{random.randint(1000000, 9999999)}"
+
+
+_used_emails = set()
+
+
+def kenyan_email(first, last):
+    slug = f"{first}.{last}".lower()
+    domain = random.choice(["gmail.com", "yahoo.com", "outlook.com"])
+    email = f"{slug}{random.randint(10, 999)}@{domain}"
+    while email in _used_emails:
+        email = f"{slug}{random.randint(10, 999)}@{domain}"
+    _used_emails.add(email)
+    return email
+
 
 ANIMAL_PROFILES = [
    
@@ -228,9 +288,9 @@ ANIMAL_PROFILES = [
     },
 ]
 
-NUM_FARMERS = 8
-NUM_BUYERS = 12
-ANIMALS_PER_FARMER = 3
+NUM_FARMERS = 18
+NUM_BUYERS = 25
+TOTAL_ANIMALS = 204
 
 # Fixed admin account. Not created through /auth/register (which only
 # allows farmer/buyer) — this is the one and only way an admin gets into
@@ -241,8 +301,9 @@ ADMIN_PASSWORD = "Farmart123"
 
 
 def create_user(role):
+    first, last = kenyan_first_last()
     user = User(
-        email=fake.unique.email(),
+        email=kenyan_email(first, last),
         role=role,
     )
     user.set_password("password123")  # fixed test password for all seeded users
@@ -251,8 +312,10 @@ def create_user(role):
 
     profile = Profile(
         user_id=user.id,
-        phone=fake.phone_number(),
-        location=fake.city(),
+        first_name=first,
+        last_name=last,
+        phone=kenyan_phone(),
+        location=random.choice(KENYAN_TOWNS),
         verification_status=fake.random_element(["pending", "verified"]),
     )
     db.session.add(profile)
@@ -272,7 +335,9 @@ def create_admin():
 
     profile = Profile(
         user_id=admin.id,
-        phone=fake.phone_number(),
+        first_name="Farmart",
+        last_name="Admin",
+        phone=kenyan_phone(),
         location="Nairobi",
         verification_status="verified",
     )
@@ -282,12 +347,18 @@ def create_admin():
 
 
 def create_animal(farmer, profile):
+    # Small jitter on age/price so repeated uses of the same breed profile
+    # (needed to reach 204 animals from 24 hand-authored profiles) don't
+    # look like exact duplicates of each other.
+    age_jitter = random.randint(-3, 4)
+    price_jitter = random.uniform(0.9, 1.12)
+
     animal = Animal(
         farmer_id=farmer.id,
         type=profile["type"],
         breed=profile["breed"],
-        age=profile["age"],
-        price=profile["price"],
+        age=max(1, profile["age"] + age_jitter),
+        price=round(profile["price"] * price_jitter, -2),  # round to nearest 100
         status=fake.random_element(["available", "available", "available", "sold"]),  # weighted toward available
         description=profile["description"],
         image_url=profile["image_url"],
@@ -297,6 +368,7 @@ def create_animal(farmer, profile):
 
 def seed():
     print("Clearing existing data...")
+    _used_emails.clear()
     # Delete children before parents to respect FK constraints.
     # Order: cart_items -> carts, payments -> order_items -> orders, then animals -> profiles -> users
     db.session.query(CartItem).delete()
@@ -321,22 +393,30 @@ def seed():
     buyers = [create_user("buyer") for _ in range(NUM_BUYERS)]
     db.session.commit()
 
-    print(f"Creating animals for each farmer...")
-    # Shuffle once and hand out each profile exactly once, so every seeded
-    # animal is a distinct breed/price/description/image with no repeats.
-    profiles = ANIMAL_PROFILES.copy()
-    random.shuffle(profiles)
-    profile_iter = iter(profiles)
-    for farmer in farmers:
-        for _ in range(ANIMALS_PER_FARMER):
-            create_animal(farmer, next(profile_iter))
+    print(f"Creating {TOTAL_ANIMALS} animals across {NUM_FARMERS} farmers...")
+    # Cycle through the 24 hand-authored breed profiles (each with a real,
+    # working Wikimedia Commons image) as many times as needed to reach
+    # TOTAL_ANIMALS, shuffling each full pass so the order isn't
+    # predictable, and round-robin the animals across farmers so every
+    # farmer ends up with a realistic, slightly uneven inventory size
+    # (204 / 18 farmers -> most get 11-12 animals each).
+    animal_index = 0
+    profiles_cycle = []
+    while animal_index < TOTAL_ANIMALS:
+        if not profiles_cycle:
+            profiles_cycle = ANIMAL_PROFILES.copy()
+            random.shuffle(profiles_cycle)
+        profile = profiles_cycle.pop()
+        farmer = farmers[animal_index % NUM_FARMERS]
+        create_animal(farmer, profile)
+        animal_index += 1
     db.session.commit()
 
     print("Seeding complete.")
     print(f"  Admin:   {admin.email} / {ADMIN_PASSWORD}")
     print(f"  Farmers: {len(farmers)}")
-    print(f"  Buyers: {len(buyers)}")
-    print(f"  Animals: {NUM_FARMERS * ANIMALS_PER_FARMER}")
+    print(f"  Buyers:  {len(buyers)}")
+    print(f"  Animals: {TOTAL_ANIMALS}")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,15 @@ class AnimalSchema(ma.SQLAlchemyAutoSchema):
 
     # farmer_id is set server-side from the logged in user, never from the client
     farmer_id = ma.Integer(dump_only=True)
-    farmer = ma.Nested("UserSchema", only=("id", "email", "role"), dump_only=True)
+    # Public-facing farmer info only: name + role + a verified badge.
+    # Deliberately NOT email/phone here — those only show up via the
+    # dedicated public profile endpoint, so a buyer has to take an
+    # explicit "View Profile" action to see contact details.
+    farmer = ma.Nested(
+        "UserSchema",
+        only=("id", "role", "name", "profile.verification_status"),
+        dump_only=True,
+    )
 
 
 animal_schema = AnimalSchema()

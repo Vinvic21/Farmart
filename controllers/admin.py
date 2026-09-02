@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
-from models import User, Profile, Animal, Order
+from models import User, Profile, Animal, Order, OrderItem
 from schemas import user_schema, users_schema, animals_schema
 from middleware import admin_required
 
@@ -103,6 +103,90 @@ def delete_user(current_user, user_id):
     db.session.commit()
 
     return jsonify({"success": True, "message": "User deleted successfully"}), 200
+
+
+@admin_bp.route("/revenue", methods=["GET"])
+@admin_required
+def get_farmer_revenue(current_user):
+    #.........................................
+    # Every buyer payment currently lands in one shared M-Pesa account, so
+    # the admin needs to see how much of that money is actually owed to
+    # each farmer before dispersing payouts. "Owed" = the farmer's share of
+    # orders that have actually been paid for.
+    rows = (
+        db.session.query(
+            User.id.label("farmer_id"),
+            db.func.coalesce(
+                db.func.sum(OrderItem.price_at_purchase * OrderItem.quantity), 0
+            ).label("total_revenue"),
+            db.func.count(db.distinct(OrderItem.order_id)).label("paid_orders"),
+        )
+        .join(OrderItem, OrderItem.farmer_id == User.id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.status == "paid")
+        .group_by(User.id)
+        .order_by(db.desc("total_revenue"))
+        .all()
+    )
+
+    farmers = []
+    for row in rows:
+        farmer = db.session.get(User, row.farmer_id)
+        dumped = user_schema.dump(farmer)
+        farmers.append({
+            "farmer_id": row.farmer_id,
+            "name": dumped.get("name"),
+            "email": dumped.get("email"),
+            "total_revenue": float(row.total_revenue),
+            "paid_orders": row.paid_orders,
+        })
+
+    total_revenue = sum(f["total_revenue"] for f in farmers)
+
+    return jsonify({
+        "success": True,
+        "total_revenue": total_revenue,
+        "farmers": farmers,
+    }), 200
+
+
+@admin_bp.route("/revenue/<int:farmer_id>", methods=["GET"])
+@admin_required
+def get_farmer_revenue_detail(current_user, farmer_id):
+    #.........................................
+    farmer = db.session.get(User, farmer_id)
+    if not farmer or farmer.role != "farmer":
+        return jsonify({"success": False, "message": "Farmer not found"}), 404
+
+    items = (
+        db.session.query(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(OrderItem.farmer_id == farmer_id, Order.status == "paid")
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+
+    line_items = []
+    total_revenue = 0.0
+    for item in items:
+        subtotal = item.price_at_purchase * item.quantity
+        total_revenue += subtotal
+        line_items.append({
+            "order_id": item.order_id,
+            "order_number": item.order.order_number,
+            "date": item.order.created_at.isoformat() if item.order.created_at else None,
+            "animal": f"{item.animal.breed} {item.animal.type}".strip() if item.animal else None,
+            "quantity": item.quantity,
+            "price_at_purchase": item.price_at_purchase,
+            "subtotal": subtotal,
+        })
+
+    return jsonify({
+        "success": True,
+        "farmer": user_schema.dump(farmer),
+        "total_revenue": total_revenue,
+        "orders": line_items,
+    }), 200
 
 
 @admin_bp.route("/animals", methods=["GET"])

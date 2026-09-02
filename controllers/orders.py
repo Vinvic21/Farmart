@@ -102,8 +102,7 @@ def get_order(order_id):
 @jwt_required()
 def checkout():
     #.........................................
-    # Converts the buyer's cart into an order, clears the cart, and marks
-    # each animal as pending until the farmer confirms/rejects it.
+    # Converts the buyer's cart into a confirmed order and clears the cart.
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
 
@@ -135,7 +134,7 @@ def checkout():
     order = Order(
         order_number=order_number,
         buyer_id=user.id,
-        status='pending',
+        status='confirmed',
         total_amount=cart.total_amount,
         **delivery_details,
     )
@@ -153,15 +152,15 @@ def checkout():
                 farmer_id=animal.farmer_id,
                 quantity=cart_item.quantity,
                 price_at_purchase=animal.price,
-                status='pending',
+                status='confirmed',
             )
             db.session.add(order_item)
             animal.status = 'pending'
 
         cart.clear()
 
-        # Payment is initiated separately once the order is confirmed
-        # (see POST /api/v1/payments/initiate)
+        # Payment is initiated separately after checkout
+        # (see POST /api/v1/payments/initiate).
 
         db.session.commit()
     except Exception as e:

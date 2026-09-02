@@ -44,8 +44,11 @@ def register():
     user = User(email=email, role=role)
     user.password = password
     user.profile = Profile(
+        first_name=data.get('first_name'),
+        last_name=data.get('last_name'),
         phone=data.get('phone'),
         location=data.get('location'),
+        bio=data.get('bio'),
         verification_status='pending',
     )
 

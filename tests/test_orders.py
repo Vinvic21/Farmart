@@ -98,11 +98,12 @@ def test_checkout_creates_order_and_clears_cart(client):
     response = _checkout(client, buyer_id, animal_id, quantity=2)
     assert response.status_code == 201
     data = response.get_json()["order"]
-    assert data["status"] == "pending"
+    assert data["status"] == "confirmed"
     assert data["total_amount"] == 1000.0
     assert data["total_items"] == 2
     assert len(data["items"]) == 1
     assert data["items"][0]["farmer_id"] == farmer_id
+    assert data["items"][0]["status"] == "confirmed"
     assert data["order_number"]
 
     with app.app_context():

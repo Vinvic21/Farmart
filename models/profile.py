@@ -6,8 +6,11 @@ class Profile(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    first_name = db.Column(db.String)
+    last_name = db.Column(db.String)
     phone = db.Column(db.String)
     location = db.Column(db.String)
+    bio = db.Column(db.Text)
     verification_status = db.Column(db.String, default="pending")
 
     user = db.relationship("User", back_populates="profile")

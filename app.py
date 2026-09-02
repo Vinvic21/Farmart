@@ -10,6 +10,7 @@ from controllers.payments import payments_bp
 from controllers.cart import cart_bp
 from controllers.orders import orders_bp
 from controllers.admin import admin_bp
+from controllers.users import users_bp
 import os
 
 load_dotenv()
@@ -29,6 +30,7 @@ app.register_blueprint(payments_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(orders_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(users_bp)
 
 @app.route('/')
 def home():

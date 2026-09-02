@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from extensions import db
-from models import Animal
+from models import Animal, CartItem, OrderItem
 from schemas import animal_schema, animals_schema
 from middleware import farmer_required, farmer_or_admin_required
 
@@ -135,7 +136,7 @@ def update_animal(id, current_user):
 @animals_bp.route("/<int:id>", methods=["DELETE"])
 @farmer_or_admin_required
 def delete_animal(id, current_user):
-    
+    #.........................................
     animal = AnimalController.get_animal_by_id(id)
     if not animal:
         return jsonify(error="Animal not found"), 404
@@ -143,7 +144,32 @@ def delete_animal(id, current_user):
     if animal.farmer_id != current_user.id and not current_user.is_admin():
         return jsonify(error="Not authorized to delete this animal"), 403
 
-    db.session.delete(animal)
-    db.session.commit()
+    # Buyers may have this animal sitting in an open cart — that's not a
+    # real transaction, just a pending selection, so it's safe to clear
+    # those out on delete rather than let them block it.
+    CartItem.query.filter_by(animal_id=id).delete()
+
+    # An animal that's part of any order (even a rejected one) can't be
+    # hard-deleted: OrderItem.animal_id is a required FK, and history like
+    # farmer revenue depends on being able to look the animal back up.
+    # Delist it instead so it disappears from the marketplace without
+    # breaking past orders.
+    has_order_history = db.session.query(
+        OrderItem.query.filter_by(animal_id=id).exists()
+    ).scalar()
+
+    if has_order_history:
+        animal.status = "removed"
+        db.session.commit()
+        return jsonify(message="Animal has order history, so it was delisted instead of deleted"), 200
+
+    try:
+        db.session.delete(animal)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        animal.status = "removed"
+        db.session.commit()
+        return jsonify(message="Animal has order history, so it was delisted instead of deleted"), 200
 
     return jsonify(message="Animal deleted successfully"), 200

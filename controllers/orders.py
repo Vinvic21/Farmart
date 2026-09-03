@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from middleware.auth_middleware import buyer_required
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 
@@ -99,7 +100,7 @@ def get_order(order_id):
 
 
 @orders_bp.route('/checkout', methods=['POST'])
-@jwt_required()
+@buyer_required
 def checkout():
     #.........................................
     # Converts the buyer's cart into a confirmed order and clears the cart.

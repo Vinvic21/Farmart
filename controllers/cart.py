@@ -8,9 +8,23 @@ from schemas import cart_schema, cart_item_schema
 
 cart_bp = Blueprint("cart", __name__, url_prefix="/api/v1/cart")
 
+def _validate_quantity(value):
+    if isinstance(value, bool):
+        return None, "quantity must be an integer"
+
+    try:
+        quantity = int(value)
+    except (TypeError, ValueError):
+        return None, "quantity must be an integer"
+
+    if quantity < 1 or quantity > 100:
+        return None, "quantity must be between 1 and 100"
+
+    return quantity, None
+
 
 class CartController:
-    #.........................................
+    
 
     @staticmethod
     def get_or_create_cart(buyer_id):
@@ -88,9 +102,18 @@ def add_to_cart():
     quantity = data.get("quantity", 1)
 
     if not animal_id:
-        return jsonify(error="animal_id is required"), 400
+       return jsonify(error="animal_id is required"), 400
 
-    item, error = CartController.add_item(buyer_id, animal_id, quantity)
+    quantity, quantity_error = _validate_quantity(quantity)
+
+    if quantity_error:
+       return jsonify(error=quantity_error), 400
+
+    item, error = CartController.add_item(
+        buyer_id,
+        animal_id,
+        quantity
+)
     if error:
         return jsonify(error=error), 400
 
@@ -104,8 +127,13 @@ def update_cart_item(id):
     data = request.get_json(silent=True) or {}
     quantity = data.get("quantity")
 
-    if not quantity:
-        return jsonify(error="quantity is required"), 400
+    if quantity is None:
+       return jsonify(error="quantity is required"), 400
+
+    quantity, quantity_error = _validate_quantity(quantity)
+
+    if quantity_error:
+       return jsonify(error=quantity_error), 400
 
     item, error = CartController.update_quantity(buyer_id, id, quantity)
     if error:

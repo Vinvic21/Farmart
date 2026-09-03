@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt_identity
+from middleware.auth_middleware import buyer_required
 
 from extensions import db
 from models import Cart, CartItem, Animal
@@ -7,9 +8,23 @@ from schemas import cart_schema, cart_item_schema
 
 cart_bp = Blueprint("cart", __name__, url_prefix="/api/v1/cart")
 
+def _validate_quantity(value):
+    if isinstance(value, bool):
+        return None, "quantity must be an integer"
+
+    try:
+        quantity = int(value)
+    except (TypeError, ValueError):
+        return None, "quantity must be an integer"
+
+    if quantity < 1 or quantity > 100:
+        return None, "quantity must be between 1 and 100"
+
+    return quantity, None
+
 
 class CartController:
-    #.........................................
+    
 
     @staticmethod
     def get_or_create_cart(buyer_id):
@@ -70,7 +85,7 @@ class CartController:
 
 
 @cart_bp.route("", methods=["GET"])
-@jwt_required()
+@buyer_required
 def get_cart():
     buyer_id = int(get_jwt_identity())
 
@@ -79,7 +94,7 @@ def get_cart():
 
 
 @cart_bp.route("/items", methods=["POST"])
-@jwt_required()
+@buyer_required
 def add_to_cart():
     buyer_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
@@ -87,9 +102,18 @@ def add_to_cart():
     quantity = data.get("quantity", 1)
 
     if not animal_id:
-        return jsonify(error="animal_id is required"), 400
+       return jsonify(error="animal_id is required"), 400
 
-    item, error = CartController.add_item(buyer_id, animal_id, quantity)
+    quantity, quantity_error = _validate_quantity(quantity)
+
+    if quantity_error:
+       return jsonify(error=quantity_error), 400
+
+    item, error = CartController.add_item(
+        buyer_id,
+        animal_id,
+        quantity
+)
     if error:
         return jsonify(error=error), 400
 
@@ -97,14 +121,19 @@ def add_to_cart():
 
 
 @cart_bp.route("/items/<int:id>", methods=["PATCH"])
-@jwt_required()
+@buyer_required
 def update_cart_item(id):
     buyer_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
     quantity = data.get("quantity")
 
-    if not quantity:
-        return jsonify(error="quantity is required"), 400
+    if quantity is None:
+       return jsonify(error="quantity is required"), 400
+
+    quantity, quantity_error = _validate_quantity(quantity)
+
+    if quantity_error:
+       return jsonify(error=quantity_error), 400
 
     item, error = CartController.update_quantity(buyer_id, id, quantity)
     if error:
@@ -114,7 +143,7 @@ def update_cart_item(id):
 
 
 @cart_bp.route("/items/<int:id>", methods=["DELETE"])
-@jwt_required()
+@buyer_required
 def delete_cart_item(id):
     buyer_id = int(get_jwt_identity())
 

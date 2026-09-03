@@ -20,7 +20,13 @@ ma = Marshmallow()
 
 def init_extensions(app):
     """Initialize all extensions with the app"""
-    app.config.setdefault("JWT_SECRET_KEY", os.environ.get("JWT_SECRET_KEY", "farmart-dev-jwt-secret-key-please-change"))
+    app.config.setdefault(
+    "JWT_SECRET_KEY",
+    os.environ.get(
+        "JWT_SECRET_KEY",
+        "farmart-dev-jwt-secret-key-please-change"
+    )
+)
     app.config.setdefault("JWT_ACCESS_TOKEN_EXPIRES", timedelta(hours=1))
     app.config.setdefault("JWT_REFRESH_TOKEN_EXPIRES", timedelta(days=30))
     app.config.setdefault("JWT_TOKEN_LOCATION", ["headers"])

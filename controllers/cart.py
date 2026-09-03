@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt_identity
+from middleware.auth_middleware import buyer_required
 
 from extensions import db
 from models import Cart, CartItem, Animal
@@ -70,7 +71,7 @@ class CartController:
 
 
 @cart_bp.route("", methods=["GET"])
-@jwt_required()
+@buyer_required
 def get_cart():
     buyer_id = int(get_jwt_identity())
 
@@ -79,7 +80,7 @@ def get_cart():
 
 
 @cart_bp.route("/items", methods=["POST"])
-@jwt_required()
+@buyer_required
 def add_to_cart():
     buyer_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
@@ -97,7 +98,7 @@ def add_to_cart():
 
 
 @cart_bp.route("/items/<int:id>", methods=["PATCH"])
-@jwt_required()
+@buyer_required
 def update_cart_item(id):
     buyer_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
@@ -114,7 +115,7 @@ def update_cart_item(id):
 
 
 @cart_bp.route("/items/<int:id>", methods=["DELETE"])
-@jwt_required()
+@buyer_required
 def delete_cart_item(id):
     buyer_id = int(get_jwt_identity())
 
